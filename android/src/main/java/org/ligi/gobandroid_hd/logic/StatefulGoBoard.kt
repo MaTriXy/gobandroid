@@ -17,6 +17,7 @@ package org.ligi.gobandroid_hd.logic
 import org.ligi.gobandroid_hd.logic.GoDefinitions.CellStatus
 
 import org.ligi.gobandroid_hd.logic.GoDefinitions.getStringFromCellStatus
+import org.ligi.gobandroid_hd.logic.cell_gatherer.MustBeConnectedCellGatherer
 
 /**
  * Class to represent a Go Board
@@ -25,21 +26,7 @@ import org.ligi.gobandroid_hd.logic.GoDefinitions.getStringFromCellStatus
 
 class StatefulGoBoard(val statelessGoBoard: StatelessGoBoard) : GoBoard by statelessGoBoard {
 
-    @CellStatus
-    val board: Array<ByteArray>
-
-    init {
-        board = Array(size) { ByteArray(size) }
-    }
-
-    /**
-     * @param cell the cell to test
-     * *
-     * @return if the cell is on board
-     */
-    fun isCellOnBoard(cell: Cell): Boolean {
-        return cell.x < size && cell.y < size && cell.x >= 0 && cell.y >= 0
-    }
+    val board: Array<ByteArray> = Array(size) { ByteArray(size) }
 
     constructor(statelessGoBoard: StatelessGoBoard, predefined_board: Array<ByteArray>) : this(statelessGoBoard) {
         applyBoardState(predefined_board)
@@ -52,10 +39,9 @@ class StatefulGoBoard(val statelessGoBoard: StatelessGoBoard) : GoBoard by state
         }
     }
 
-
     /**
      * clone this board
-
+     *
      * @return a copy of this board
      */
     fun clone(): StatefulGoBoard {
@@ -66,7 +52,6 @@ class StatefulGoBoard(val statelessGoBoard: StatelessGoBoard) : GoBoard by state
      * check if two boards are equal
      */
     fun equals(other: StatefulGoBoard?): Boolean {
-
         // cannot be the same if board is null
         if (other == null) return false
 
@@ -129,16 +114,33 @@ class StatefulGoBoard(val statelessGoBoard: StatelessGoBoard) : GoBoard by state
         return Math.max(board[one.x][one.y].toInt(), 0) == Math.max(board[other.x][other.y].toInt(), 0)
     }
 
-    fun setCell(cell: Cell, @CellStatus newStatus: Byte) {
+    fun getCellKind(cell: Cell): Byte {
+        return board[cell.x][cell.y];
+    }
+
+    fun setCell(cell: Cell, newStatus: Byte) {
         board[cell.x][cell.y] = newStatus
     }
 
-    fun toggleCellDead(cell: Cell) {
+    fun setCellGroup(cells: Collection<Cell>, newStatus: Byte) {
+        cells.forEach { setCell(it, newStatus) }
+    }
 
+    fun toggleCellDead(cell: Cell) {
         board[cell.x][cell.y] = board[cell.x][cell.y].times(-1).toByte()
     }
 
     fun isCellDead(cell: Cell): Boolean {
         return board[cell.x][cell.y] < 0
+    }
+
+    fun doesCellGroupHaveLiberty(cell: Cell): Boolean {
+        return getCellGroup(cell).any {
+            it.neighbors.any { neighbor -> isCellFree(neighbor) }
+        }
+    }
+
+    fun getCellGroup(cell: Cell): Set<StatelessBoardCell> {
+        return MustBeConnectedCellGatherer(this, getCell(cell)).gatheredCells
     }
 }

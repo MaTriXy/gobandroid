@@ -18,11 +18,9 @@ package org.ligi.gobandroid_hd.ui.alerts
 
 import android.content.Context
 import android.view.View
-import android.view.ViewGroup
 import android.widget.Button
-import android.widget.CheckBox
 import android.widget.LinearLayout
-import android.widget.TextView
+import kotlinx.android.synthetic.main.dialog_game_forward.view.*
 import org.ligi.gobandroid_hd.R
 import org.ligi.gobandroid_hd.logic.GoGame
 import org.ligi.gobandroid_hd.logic.markers.TextMarker
@@ -45,16 +43,12 @@ class GameForwardAlert(context: Context, game: GoGame) : GobandroidDialog(contex
 
         setContentView(R.layout.dialog_game_forward)
 
-        val message = findViewById(R.id.message) as TextView
-        val buttonContainer = findViewById(R.id.buttonContainer) as ViewGroup
-        val showvariationwin = findViewById(R.id.variant_promote_tips) as CheckBox
-
         // show the comment when there is one - useful for SGF game problems
-        val variationCount = game.possibleVariationCount + 1
-        if (game.actMove.hasComment()) {
-            message.text = game.actMove.comment
+        val variationCount = game.possibleVariationCount
+        container.message.text = if (game.actMove.hasComment()) {
+            game.actMove.comment
         } else {
-            message.text = "$variationCount " + context.getString(R.string.variations_found)
+            "$variationCount " + context.getString(R.string.variations_found)
         }
 
         val var_select_listener = View.OnClickListener {
@@ -64,27 +58,29 @@ class GameForwardAlert(context: Context, game: GoGame) : GobandroidDialog(contex
                 game.redo(it.tag as Int)
             }
 
-            if (showvariationwin.isChecked) {
+            if (container.variant_promote_tips.isChecked) {
                 GoPrefs.isShowForwardAlertWanted = false
             }
         }
 
-        for (i in 0..variationCount - 1) {
+        for (i in 1..variationCount) {
             val var_btn = Button(context)
-            var_btn.tag = i
+            val i_index = i - 1
+            var_btn.tag = i_index
             var_btn.setOnClickListener(var_select_listener)
-            if (game.actMove.getnextMove(i).isMarked) {
-                val goMarker = game.actMove.getnextMove(i).goMarker
+            val nextMove = game.actMove.getnextMove(i_index)
+            if (nextMove!=null && nextMove.isMarked) {
+                val goMarker = nextMove.goMarker
                 if (goMarker is TextMarker) {
                     var_btn.text = goMarker.text
                 } else {
-                    var_btn.text = (i + 1).toString()
+                    var_btn.text = i.toString()
                 }
             } else {
-                var_btn.text = (i + 1).toString()
+                var_btn.text = i.toString()
             }
 
-            buttonContainer.addView(var_btn)
+            container.buttonContainer.addView(var_btn)
 
             var_btn.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
@@ -96,7 +92,7 @@ class GameForwardAlert(context: Context, game: GoGame) : GobandroidDialog(contex
     companion object {
         fun showIfNeeded(ctx: Context, game: GoGame) {
             if (game.canRedo()) {
-                if (game.possibleVariationCount > 0) {
+                if (game.possibleVariationCount > 1) {
                     GameForwardAlert(ctx, game).show()
                 } else {
                     game.redo(0)

@@ -1,10 +1,10 @@
 package org.ligi.gobandroid_hd.ui
 
+import android.content.DialogInterface
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.support.v7.app.AlertDialog
-import org.ligi.axt.listeners.ActivityFinishingOnClickListener
 import org.ligi.gobandroid_hd.App
 import org.ligi.gobandroid_hd.InteractionScope
 import org.ligi.gobandroid_hd.R
@@ -27,11 +27,11 @@ open class GobanDroidTVActivity : GobandroidFragmentActivity() {
 
         supportActionBar!!.setLogo(R.drawable.gobandroid_tv)
 
-        App.getTracker().init(this)
+        App.tracker.init(this)
 
         if (path_to_play_from.listFiles() == null) {
             setContentView(R.layout.empty)
-            App.getTracker().trackEvent("intern", "unzip", "gtv", null)
+            App.tracker.trackEvent("intern", "unzip", "gtv", null)
             UnzipSGFsDialog(this, intent2start, env).show()
         } else {
             startTV()
@@ -50,12 +50,14 @@ open class GobanDroidTVActivity : GobandroidFragmentActivity() {
             AlertDialog.Builder(this)
                     .setMessage(getString(R.string.there_are_no_files_in) + " " + path_to_play_from)
                     .setTitle(R.string.problem)
-                    .setPositiveButton(R.string.ok, ActivityFinishingOnClickListener(this)).show()
+                    .setPositiveButton(R.string.ok, DialogInterface.OnClickListener { dialogInterface, i ->
+                        this@GobanDroidTVActivity.finish()
+                    }).show()
         } else {
 
             val chosen = avail_file_list[(Math.random() * avail_file_list.size).toInt()]
 
-            App.getTracker().trackEvent("gtv", "start_play_file", chosen.absolutePath, null)
+            App.tracker.trackEvent("gtv", "start_play_file", chosen.absolutePath, null)
 
             start_review_intent.data = Uri.parse("file://" + chosen)
 

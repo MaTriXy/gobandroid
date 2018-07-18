@@ -1,17 +1,19 @@
-apply plugin: 'android-sdk-manager'
 apply plugin: 'com.android.application'
 apply plugin: 'spoon'
 apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-android-extensions'
+apply plugin: 'kotlin-kapt'
 apply plugin: 'de.mobilej.unmock'
 apply plugin: 'com.github.ben-manes.versions'
 apply plugin: 'com.getkeepsafe.dexcount'
 
 repositories {
     jcenter()
+    maven { url 'https://jitpack.io' }
 }
 
 android {
-    flavorDimensions "analytics", "cloud"
+    flavorDimensions "analytics", "cloud", "autostart"
 
     productFlavors {
         withAnalytics {
@@ -30,16 +32,34 @@ android {
             dimension "cloud"
         }
 
+        withAutostart {
+            dimension "autostart"
+        }
+
+        noAutostart {
+            dimension "autostart"
+        }
+
     }
 
-    compileSdkVersion 24
-    buildToolsVersion "23.0.3"
+    android.variantFilter { variant ->
+        def analytics = variant.getFlavors().get(0).name
+        def cloud = variant.getFlavors().get(1).name
+
+        variant.setIgnore((project.hasProperty("singleFlavor") && (analytics != 'withAnalytics') && (cloud != 'withCloud')) ||
+                (analytics == 'withAnalytics' && cloud == 'noCloud') ||
+                (analytics == 'noAnalytics' && cloud == 'withCloud'))
+
+    }
+
+    compileSdkVersion 25
+    buildToolsVersion "25.0.2"
 
     defaultConfig {
-        versionCode 245
-        versionName "2.4.5"
+        versionCode 259
+        versionName "2.5.9"
         minSdkVersion 9
-        targetSdkVersion 22
+        targetSdkVersion 25
         applicationId "org.ligi.gobandroid_hd"
         testInstrumentationRunner "org.ligi.gobandroid_hd.AppReplacingRunner"
         archivesBaseName = "Gobandroid-$versionName"
@@ -49,6 +69,7 @@ android {
 
     lintOptions {
         warning 'MissingTranslation'
+        warning 'ResourceType'
 
         // for OKIO
         warning 'InvalidPackage'
@@ -86,28 +107,41 @@ android {
         }
     }
 
-    dexOptions {
-        incremental true
-    }
-
 } // android
 
 spoon {
     debug = true
 }
 
-kapt {
-    generateStubs = true
+
+configurations {
+
+    // http://stackoverflow.com/questions/30578243/why-would-adding-espresso-contrib-cause-an-inflateexception
+    androidTestCompile.exclude group: 'com.android.support', module: 'appcompat-v7'
+    androidTestCompile.exclude group: 'com.android.support', module: 'design'
+    androidTestCompile.exclude group: 'com.android.support', module: 'support-v4'
+    androidTestCompile.exclude group: 'com.android.support', module: 'support-annotations'
+    androidTestCompile.exclude group: 'com.android.support', module: 'preference-v7'
+    androidTestCompile.exclude module: 'recyclerview-v7'
+    androidTestCompile.exclude module: 'kotlin-stdlib'
+}
+
+configurations {
+
+    // http://stackoverflow.com/questions/30578243/why-would-adding-espresso-contrib-cause-an-inflateexception
+    androidTestCompile.exclude group: 'com.android.support', module: 'appcompat-v7'
+    androidTestCompile.exclude group: 'com.android.support', module: 'design'
+    androidTestCompile.exclude group: 'com.android.support', module: 'support-v4'
+    androidTestCompile.exclude group: 'com.android.support', module: 'support-annotations'
+    androidTestCompile.exclude group: 'com.android.support', module: 'preference-v7'
+    androidTestCompile.exclude module: 'recyclerview-v7'
 }
 
 dependencies {
-    kapt "com.google.dagger:dagger-compiler:$dagger_version"
-    kapt "com.jakewharton:butterknife-compiler:$butterknife_version"
+    compile 'com.github.hotchemi:permissionsdispatcher:2.3.2'
+    kapt 'com.github.hotchemi:permissionsdispatcher-processor:2.3.2'
 
-    compile 'com.google.code.findbugs:jsr305:3.0.1'
-    provided 'org.glassfish:javax.annotation:10.0-b28'
-
-    compile "com.google.dagger:dagger:$dagger_version"
+    compile 'com.github.salomonbrys.kodein:kodein:3.3.0'
 
     compile "com.android.support:appcompat-v7:$support_version"
     compile "com.android.support:recyclerview-v7:$support_version"
@@ -115,19 +149,22 @@ dependencies {
     compile "com.android.support:design:$support_version"
     compile "com.android.support:preference-v7:$support_version"
 
-    compile 'org.ligi:AXT:0.37'
-    compile 'org.ligi:tracedroid:1.4'
-    compile 'org.ligi:snackengage:0.5'
+    compile 'com.github.ligi:KAXT:0.20'
+    compile 'com.github.ligi:tracedroid:1.4'
 
-    compile "com.jakewharton:butterknife:$butterknife_version"
+    compile 'com.github.ligi.snackengage:snackengage-playrate:0.15'
+
+    compile 'com.github.ligi:ExtraCompats:0.4'
+
     compile 'net.sourceforge.jchardet:jchardet:1.0'
-    compile 'com.squareup.okhttp3:okhttp:3.4.1'
+    compile 'com.squareup.okhttp3:okhttp:3.10.0'
     compile 'com.n3twork.druid:alphanum:1.0.3'
     compile "com.android.support:support-annotations:$support_version"
 
     compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
-    compile "org.jetbrains.kotlin:kotlin-runtime:$kotlin_version"
-    compile 'com.chibatching:kotpref:1.3.1'
+
+    compile("com.chibatching.kotpref:kotpref:$kotpref_version")
+    compile("com.chibatching.kotpref:initializer:$kotpref_version")
 
     withAnalyticsCompile "com.google.android.gms:play-services-analytics:$play_version"
 
@@ -136,23 +173,21 @@ dependencies {
     withCloudCompile "com.google.android.gms:play-services-gcm:$play_version"
     withCloudCompile "com.google.android.gms:play-services-plus:$play_version"
 
-    withCloudCompile 'com.google.apis:google-api-services-games:v1-rev204-1.22.0'
+    withCloudCompile ('com.google.apis:google-api-services-games:v1-rev214-1.22.0') {
+        exclude module: 'jsr305'
+    }
 
-    kaptAndroidTest "com.google.dagger:dagger-compiler:$dagger_version"
+    androidTestCompile 'com.github.ligi:trulesk:0.19'
 
-    androidTestCompile 'com.android.support.test.espresso:espresso-core:2.2.2'
     androidTestCompile "com.android.support:support-annotations:$support_version"
     androidTestCompile 'com.squareup.assertj:assertj-android:1.1.1'
 
-    androidTestCompile 'com.jraska:falcon-spoon-compat:1.0.3'
-    
     testCompile 'com.squareup.assertj:assertj-android:1.1.1'
     testCompile "com.android.support:support-annotations:$support_version"
     testCompile 'junit:junit:4.12'
-    testCompile 'com.google.code.findbugs:jsr305:3.0.1'
 
-    androidTestCompile 'com.squareup.spoon:spoon-client:1.6.4'
-    androidTestCompile 'com.google.code.findbugs:jsr305:3.0.1'
+    androidTestCompile 'com.squareup.spoon:spoon-client:1.7.1'
 
+    compile 'com.google.android:flexbox:0.2.6'
     compile 'org.greenrobot:eventbus:3.0.0'
 }

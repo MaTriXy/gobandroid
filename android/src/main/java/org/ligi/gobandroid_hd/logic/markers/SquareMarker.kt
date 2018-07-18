@@ -6,13 +6,13 @@ import org.ligi.gobandroid_hd.logic.Cell
 
 class SquareMarker(cell: Cell) : BaseShapeMarker(cell) {
 
+    override fun getMarkerCode() = "SQ"
+
     override fun draw(c: Canvas, size: Float, x: Float, y: Float, paint: Paint) {
-        super.draw(c, size, x, y, paint)
         val rect_size = size / 4
         c.drawRect(x - rect_size, y - rect_size, x + rect_size, y + rect_size, localPaint)
     }
 
-    override fun equals(other: Any?): Boolean {
-        return super.equals(other) && other is SquareMarker
-    }
+    override fun equals(other: Any?) = super.equals(other) && other is SquareMarker
+
 }

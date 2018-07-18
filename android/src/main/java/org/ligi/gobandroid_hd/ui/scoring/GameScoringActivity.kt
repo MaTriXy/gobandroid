@@ -2,12 +2,11 @@ package org.ligi.gobandroid_hd.ui.scoring
 
 import android.app.Activity
 import android.os.Bundle
-import android.support.v4.app.Fragment
 import android.view.Menu
 import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.WindowManager
-import org.ligi.axt.AXT
+import kotlinx.android.synthetic.main.game.*
 import org.ligi.gobandroid_hd.R
 import org.ligi.gobandroid_hd.events.GameChangedEvent
 import org.ligi.gobandroid_hd.logic.Cell
@@ -19,6 +18,7 @@ import org.ligi.gobandroid_hd.logic.cell_gatherer.MustBeConnectedCellGatherer
 import org.ligi.gobandroid_hd.ui.GoActivity
 import org.ligi.gobandroid_hd.ui.gnugo.PlayAgainstGnuGoActivity
 import org.ligi.gobandroid_hd.ui.recording.GameRecordActivity
+import org.ligi.kaxt.startActivityFromClass
 import java.util.*
 import kotlin.reflect.KClass
 
@@ -27,12 +27,8 @@ import kotlin.reflect.KClass
  */
 class GameScoringActivity : GoActivity() {
 
-    private val gameExtraFragment: GameScoringExtrasFragment by lazy {
+    override val gameExtraFragment: GameScoringExtrasFragment by lazy {
         GameScoringExtrasFragment()
-    }
-
-    override fun getGameExtraFragment(): Fragment? {
-        return gameExtraFragment
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -70,8 +66,8 @@ class GameScoringActivity : GoActivity() {
             val allProcessed = HashSet<Cell>()
             val allGroups = HashSet<Set<StatelessBoardCell>>()
 
-            game.calcBoard.statelessGoBoard.withAllCells {
-                val cell = game.calcBoard.statelessGoBoard.getCell(it)
+            game.statelessGoBoard.withAllCells {
+                val cell = game.statelessGoBoard.getCell(it)
                 val inGroup = LooseConnectedCellGatherer(game.calcBoard, cell).gatheredCells
                 allProcessed.addAll(inGroup)
                 if (!game.calcBoard.isCellFree(it)) {
@@ -86,7 +82,7 @@ class GameScoringActivity : GoActivity() {
         //super.doTouch(event); - Do not call! Not needed and breaks marking dead stones
 
         eventForZoomBoard(event)
-        val touchCell = board.pixel2cell(event.x, event.y)
+        val touchCell = go_board.pixel2cell(event.x, event.y)
         interactionScope.touchCell = touchCell
 
         // calculate position on the field by position on the touchscreen
@@ -98,8 +94,10 @@ class GameScoringActivity : GoActivity() {
 
     }
 
-    override fun doMoveWithUIFeedback(cell: Cell): GoGame.MoveStatus {
-        do_score_touch(cell)
+    override fun doMoveWithUIFeedback(cell: Cell?): GoGame.MoveStatus {
+        if (cell != null) {
+            do_score_touch(cell)
+        }
         bus.post(GameChangedEvent)
         return GoGame.MoveStatus.VALID
     }
@@ -109,7 +107,7 @@ class GameScoringActivity : GoActivity() {
             R.id.menu_game_again -> {
                 val metaData = game.metaData
                 gameProvider.set(GoGame(game.size))
-                AXT.at(this).startCommonIntent().activityFromClass(getClassForRestart(metaData).java)
+                startActivityFromClass(getClassForRestart(metaData).java)
 
                 return true
             }
@@ -126,7 +124,7 @@ class GameScoringActivity : GoActivity() {
     override fun onPause() {
         super.onPause()
         // if we go back to other modes we want to have them alive again ( Zombies ?)
-        game.calcBoard.statelessGoBoard.withAllCells {
+        game.statelessGoBoard.withAllCells {
             if (game.calcBoard.isCellDead(it)) {
                 game.calcBoard.toggleCellDead(it)
             }
@@ -138,11 +136,10 @@ class GameScoringActivity : GoActivity() {
 
 
     fun do_score_touch(cell: Cell) {
-
         val calcBoard = game.calcBoard
         if (!calcBoard.isCellFree(cell) || calcBoard.isCellDead(cell)) {
             // if there is a stone/cellGathering
-            val cellGathering = MustBeConnectedCellGatherer(calcBoard, calcBoard.statelessGoBoard.getCell(cell)).gatheredCells
+            val cellGathering = MustBeConnectedCellGatherer(calcBoard, calcBoard.getCell(cell)).gatheredCells
             for (groupCell in cellGathering) {
                 calcBoard.toggleCellDead(groupCell)
             }

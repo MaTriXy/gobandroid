@@ -44,17 +44,13 @@ class GoGame @JvmOverloads constructor(size: Int, handicap: Int = 0) {
         INVALID_IS_KO
     }
 
-    val statelessGoBoard: StatelessGoBoard
-    val calcBoard: StatefulGoBoard // the board calculations are done in
+    val statelessGoBoard: StatelessGoBoard = StatelessGoBoard(size)
+    val calcBoard: StatefulGoBoard = StatefulGoBoard(statelessGoBoard)// the board calculations are done in
 
     lateinit var visualBoard: StatefulGoBoard
-
-    private var last_board: StatefulGoBoard? = null // board to detect KO situations
-    private var pre_last_board: StatefulGoBoard? = null // board to detect KO situations
     lateinit var handicapBoard: StatefulGoBoard
 
     private var groups: Array<IntArray>? = null // array to build groups
-
 
     var capturesWhite: Int = 0
     var capturesBlack: Int = 0
@@ -67,13 +63,9 @@ class GoGame @JvmOverloads constructor(size: Int, handicap: Int = 0) {
 
     lateinit var metaData: GoGameMetadata
 
-    private var all_handicap_positions: Array<BooleanArray>? = null
-
-    private var local_captures = 0
+    private lateinit var all_handicap_positions: Array<BooleanArray>
 
     init {
-        statelessGoBoard = StatelessGoBoard(size)
-        calcBoard = StatefulGoBoard(statelessGoBoard)
         init(size, handicap)
     }
 
@@ -118,24 +110,19 @@ class GoGame @JvmOverloads constructor(size: Int, handicap: Int = 0) {
                         handicapBoard.setCell(CellImpl(handicapArray[i + 1][0].toInt(), handicapArray[i + 1][1].toInt()), STONE_BLACK)
                     } else if (i == 6 || i == 8) handicapBoard.setCell(CellImpl(handicapArray[4][0].toInt(), handicapArray[4][1].toInt()), STONE_BLACK)
                 }
-                all_handicap_positions!![handicapArray[i][0].toInt()][handicapArray[i][1].toInt()] = true
+                all_handicap_positions[handicapArray[i][0].toInt()][handicapArray[i][1].toInt()] = true
             }
         }
 
         apply_handicap()
-
         copyVisualBoard()
-        last_board = calcBoard.clone()
-        pre_last_board = null
 
         // create the array for group calculations
         groups = Array(size) { IntArray(size) }
 
         actMove = GoMove(null)
         actMove.setIsFirstMove()
-        actMove.setIsBlackToMove(handicap != 0) // if handicap==null set black
-        // to move next - else set
-        // white to move next
+        actMove.player = if(handicap == 0) PLAYER_WHITE else PLAYER_BLACK
         reset()
     }
 
@@ -147,11 +134,8 @@ class GoGame @JvmOverloads constructor(size: Int, handicap: Int = 0) {
     }
 
     fun reset() {
-        pre_last_board = null
-
         capturesBlack = 0
         capturesWhite = 0
-
     }
 
     fun pass() {
@@ -174,71 +158,48 @@ class GoGame @JvmOverloads constructor(size: Int, handicap: Int = 0) {
      */
     fun do_move(cell: Cell): MoveStatus {
         Log.i("do_move " + cell)
-
-        // check hard preconditions
-        if (!calcBoard.isCellOnBoard(cell)) {
-            // return with INVALID if x and y are inside the board
-            return MoveStatus.INVALID_NOT_ON_BOARD
-        }
-
-        if (isFinished) {
+        if(actMove.isFinalMove) {
             // game is finished - players are marking dead stones
             return MoveStatus.VALID
         }
 
-        if (!calcBoard.isCellFree(cell)) {
-            // can never place a stone where another is
-            return MoveStatus.INVALID_CELL_NOT_FREE
+        val nextMove: GoMove = GoMove(cell, actMove, calcBoard)
+        val errorStatus = nextMove.getErrorStatus(calcBoard)
+        if (errorStatus != null) {
+            return errorStatus
         }
 
         // check if the "new" move is in the variations - to not have 2 equal
         // move as different variations
-        val matching_move = actMove.getNextMoveOnCell(cell)
-
         // if there is one matching use this move and we are done
+        val matching_move = actMove.getNextMoveOnCell(cell)
         if (matching_move != null) {
-            jump(matching_move)
+            redo(matching_move)
             return MoveStatus.VALID
-        }
-
-        val bak_board = calcBoard.clone()
-
-        calcBoard.setCell(cell, if (isBlackToMove) STONE_BLACK else STONE_WHITE)
-
-        remove_dead(cell)
-
-        // move is a KO -> Invalid
-        if (calcBoard.equals(pre_last_board)) {
-            Log.i("illegal move -> KO")
-            calcBoard.applyBoardState(bak_board.board)
-            return MoveStatus.INVALID_IS_KO
-        }
-
-        if (!hasGroupLiberties(cell)) {
-            Log.i("illegal move -> NO LIBERTIES")
-            calcBoard.applyBoardState(bak_board.board)
-            return MoveStatus.INVALID_CELL_NO_LIBERTIES
         }
 
         // if we reach this point it is a valid move
         // -> do things needed to do after a valid move
-
-        pre_last_board = last_board!!.clone()
-        last_board = calcBoard.clone()
-        copyVisualBoard()
-
-        actMove = GoMove(cell, actMove)
-
-        if (!calcBoard.isCellKind(cell, STONE_WHITE))
-            capturesBlack += local_captures
-        else
-            capturesWhite += local_captures
-
-        actMove.setDidCaptures(local_captures > 0)
-        EventBus.getDefault().post(GameChangedEvent)
+        actMove = nextMove
+        actMove.apply(calcBoard)
+        applyCaptures()
+        refreshBoards()
 
         // if we reached this point this move must be valid
         return MoveStatus.VALID
+    }
+
+    fun repositionActMove(cell: Cell): MoveStatus {
+        Log.i("repositionActMove " + cell)
+        if(cell == actMove.cell) {
+            return MoveStatus.VALID
+        }
+
+        undoCaptures()
+        val moveStatus = actMove.repostition(calcBoard, cell)
+        applyCaptures()
+        refreshBoards()
+        return moveStatus
     }
 
     fun canRedo(): Boolean {
@@ -250,127 +211,127 @@ class GoGame @JvmOverloads constructor(size: Int, handicap: Int = 0) {
             return actMove.nextMoveVariationCount
         }
 
-    /**
-     * moving without checks useful e.g. for undo / recorded games where we can
-     * be sure that the move is valid and so be faster
-     */
-    fun do_internal_move(move: GoMove) {
-
-        actMove = move
-        if (move.isFirstMove || move.isPassMove) return
-
-        calcBoard.setCell(move.cell, if (move.isBlackToMove) STONE_BLACK else STONE_WHITE)
-
-        if (move.didCaptures()) {
-            buildGroups()
-            remove_dead(move.cell)
-
-            if (calcBoard.isCellKind(move.cell, STONE_BLACK))
-                capturesBlack += local_captures
-            else
-                capturesWhite += local_captures
-
-        }
-    }
-
     fun canUndo(): Boolean {
         return !actMove.isFirstMove// &&(!getGoMover().isMoversMove());
     }
 
     @JvmOverloads fun undo(keep_move: Boolean = true) {
-        val mLastMove = actMove
-        jump(mLastMove.parent)
-        if (!keep_move) mLastMove.destroy()
+        undoCaptures()
+        actMove = actMove.undo(calcBoard, keep_move)
+        refreshBoards()
     }
-
 
     fun redo(pos: Int) {
-        Log.i("redoing " + actMove.getnextMove(pos).toString())
-        jump(actMove.getnextMove(pos))
+        actMove.getnextMove(pos)?.let {
+            redo(it)
+        }
     }
 
+    fun redo(move: GoMove) {
+        actMove = actMove.redo(calcBoard, move)
+        applyCaptures()
+        refreshBoards()
+    }
+
+    fun applyCaptures() {
+        val local_captures = actMove.captures.size
+        if(local_captures > 0) {
+            actMove.cell?.let {
+                if (calcBoard.isCellKind(it, STONE_WHITE)) {
+                    capturesWhite += local_captures
+                } else {
+                    capturesBlack += local_captures
+                }
+            }
+        }
+    }
+
+    fun undoCaptures() {
+        val local_captures = actMove.captures.size
+        if(local_captures > 0) {
+            actMove.cell?.let {
+                if (calcBoard.isCellKind(it, STONE_WHITE)) {
+                    capturesWhite -= local_captures
+                } else {
+                    capturesBlack -= local_captures
+                }
+            }
+        }
+    }
 
     fun nextVariationWithOffset(offset: Int): GoMove? {
         if (actMove.isFirstMove) return null
-        val variations = actMove.parent.nextMoveVariations
+        val variations = actMove.parent!!.nextMoveVariations
         val indexOf = variations.indexOf(actMove)
         return variations.elementAtOrNull(indexOf + offset)
     }
 
     fun refreshBoards() {
-        jump(actMove)
+        copyVisualBoard()
+        EventBus.getDefault().post(GameChangedEvent)
     }
 
-    fun findFollowingMove(f: (GoMove) -> Boolean): GoMove {
+    fun findFollowingMove(f: (GoMove) -> Boolean): GoMove? {
         return findMove({ it.getnextMove(0) }, f)
     }
 
-    fun findPreviousMove(condition: (GoMove) -> Boolean): GoMove {
+    fun findPreviousMove(condition: (GoMove) -> Boolean): GoMove? {
         return findMove({ it.parent }, condition)
     }
 
-    fun findMove(nextMove: (GoMove) -> GoMove, condition: (GoMove) -> Boolean): GoMove {
-        var move = actMove
-        while (true) {
+    fun findMove(nextMove: (GoMove) -> GoMove?, condition: (GoMove) -> Boolean): GoMove? {
+        var move: GoMove? = actMove
+        while (move!=null) {
             if (condition(move)) return move
             move = nextMove(move)
         }
+        return null
     }
 
     fun findFirstMove(): GoMove {
-        return findPreviousMove { it.isFirstMove }
+        return findPreviousMove { it.isFirstMove }!!
     }
 
     fun findLastMove(): GoMove {
-        return findFollowingMove { !it.hasNextMove() }
+        return findFollowingMove { !it.hasNextMove() }!!
     }
 
-    fun findNextJunction(): GoMove {
+    fun findNextJunction(): GoMove? {
         return findFollowingMove { !it.hasNextMove() || it.hasNextMoveVariations() }
     }
 
-    fun findPrevJunction(): GoMove {
+    fun findPrevJunction(): GoMove? {
         return findPreviousMove { it.isFirstMove || (it.hasNextMoveVariations() && !it.isContentEqual(actMove.parent) && !it.isContentEqual(actMove)) }
     }
 
     fun jump(move: GoMove?) {
-
         if (move == null) {
             Log.w("move is null #shouldnothappen")
             return
         }
 
         clear_calc_board()
-
         val replay_moves = ArrayList<GoMove>()
-
         replay_moves.add(move)
         var tmp_move: GoMove
         while (true) {
-
             tmp_move = replay_moves.last()
-
             if (tmp_move.isFirstMove || tmp_move.parent == null) break
-
-            replay_moves.add(tmp_move.parent)
+            replay_moves.add(tmp_move.parent!!)
         }
 
         reset()
         actMove = findFirstMove()
+        for (step in replay_moves.indices.reversed()) {
+            actMove = actMove.redo(calcBoard, replay_moves[step])
+            applyCaptures()
+        }
 
-        for (step in replay_moves.indices.reversed())
-            do_internal_move(replay_moves[step])
-
-        copyVisualBoard()
-        EventBus.getDefault().post(GameChangedEvent)
+        refreshBoards()
     }
 
     fun copyVisualBoard() {
         visualBoard = calcBoard.clone()
-    }
-
-    fun cell_has_neighbour(board: StatefulGoBoard, boardCell: StatelessBoardCell, kind: Byte): Boolean {
-        return boardCell.neighbors.any { board.isCellKind(it, kind) }
     }
 
     /**
@@ -379,11 +340,9 @@ class GoGame @JvmOverloads constructor(size: Int, handicap: Int = 0) {
      * @return boolean weather the group has liberty
      */
     fun hasGroupLiberties(cell: Cell): Boolean {
-
-        val startCell = calcBoard.statelessGoBoard.getCell(cell)
-
-        return MustBeConnectedCellGatherer(calcBoard, startCell).gatheredCells.any() {
-            cell_has_neighbour(calcBoard, it, STONE_NONE)
+        val startCell = statelessGoBoard.getCell(cell)
+        return MustBeConnectedCellGatherer(calcBoard, startCell).gatheredCells.any {
+            it.neighbors.any { neighbor -> calcBoard.isCellFree(neighbor) }
         }
     }
 
@@ -401,13 +360,12 @@ class GoGame @JvmOverloads constructor(size: Int, handicap: Int = 0) {
         val group_count = AtomicInteger(0)
 
         // reset groups
-        calcBoard.statelessGoBoard.withAllCells {
+        statelessGoBoard.withAllCells {
             groups!![it.x][it.y] = -1
         }
 
-        calcBoard.statelessGoBoard.withAllCells { statelessBoardCell ->
+        statelessGoBoard.withAllCells { statelessBoardCell ->
             if (groups!![statelessBoardCell.x][statelessBoardCell.y] == -1 && !calcBoard.isCellKind(statelessBoardCell, STONE_NONE)) {
-
                 for (groupCell in MustBeConnectedCellGatherer(calcBoard, statelessBoardCell).gatheredCells) {
                     groups!![groupCell.x][groupCell.y] = group_count.get()
                 }
@@ -418,42 +376,11 @@ class GoGame @JvmOverloads constructor(size: Int, handicap: Int = 0) {
     }
 
     /**
-     * remove dead groups from the board - e.g. after a move
-     * the cell with ignore_x and ignore_y is ignored - e.g. last move
-     */
-    private fun remove_dead(where: Cell) {
-        local_captures = 0
-
-        val boardWhere = calcBoard.statelessGoBoard.getCell(where)
-
-        for (boardCell in boardWhere.neighbors)
-            if (!hasGroupLiberties(boardCell) && !calcBoard.areCellsEqual(boardWhere, boardCell)) remove_group(boardCell)
-    }
-
-    private fun remove_group(where: Cell) {
-
-        if (calcBoard.isCellFree(where))
-        // this is no "group" in the sense we want
-            return
-
-        val cellGathering = MustBeConnectedCellGatherer(calcBoard, calcBoard.statelessGoBoard.getCell(where)).gatheredCells
-
-        cellGathering.forEach {
-            local_captures++
-            calcBoard.setCell(it, STONE_NONE)
-        }
-    }
-
-    /**
      * return if it's a handicap stone so that the view can visualize it
      *
-     *
      * TODO: check rename ( general marker )
-     *
      */
-    fun isCellHoschi(cell: Cell): Boolean {
-        return all_handicap_positions!![cell.x][cell.y]
-    }
+    fun isCellHoshi(cell: Cell) = all_handicap_positions[cell.x][cell.y]
 
     // need at least 2 moves to finish a game ( 2 passes )
     // w passes
@@ -461,16 +388,14 @@ class GoGame @JvmOverloads constructor(size: Int, handicap: Int = 0) {
         get() {
             if (actMove.isFirstMove) return false
             if (actMove.parent == null) return false
-            return actMove.isPassMove && actMove.parent.isPassMove
+            return actMove.isPassMove && actMove.parent!=null && actMove.parent!!.isPassMove
         }
 
     /**
      * @return who has to do the next move
      */
-    // the opposite of wo was to move
-    // before
     val isBlackToMove: Boolean
-        get() = !actMove.isBlackToMove
+        get() = actMove.player == PLAYER_WHITE
 
     // TODO cache?
     val boardSize: Int
@@ -511,6 +436,4 @@ class GoGame @JvmOverloads constructor(size: Int, handicap: Int = 0) {
 
         return !move1.nextMoveVariations.any { !hasNextMove(move1, it) }
     }
-
-
 }

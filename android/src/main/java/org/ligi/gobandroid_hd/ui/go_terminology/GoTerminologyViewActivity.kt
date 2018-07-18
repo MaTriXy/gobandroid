@@ -4,9 +4,7 @@ import android.os.Bundle
 import android.support.v7.app.AppCompatActivity
 import android.text.util.Linkify
 import android.widget.TextView
-import org.ligi.axt.listeners.ActivityFinishingOnClickListener
 import org.ligi.gobandroid_hd.R
-import java.util.*
 import java.util.regex.Pattern
 
 class GoTerminologyViewActivity : AppCompatActivity() {
@@ -20,7 +18,10 @@ class GoTerminologyViewActivity : AppCompatActivity() {
         val term = this.intent.data.toString().substringAfterLast("/")
 
         val dialog = GoTerminologyDialog(this, term)
-        dialog.setPositiveButton(android.R.string.ok, ActivityFinishingOnClickListener(this))
+        dialog.setPositiveButton(android.R.string.ok,  { dialog ->
+            dialog.dismiss()
+            finish()
+        })
         dialog.setOnCancelListener { finish() }
         dialog.show()
 
@@ -28,19 +29,17 @@ class GoTerminologyViewActivity : AppCompatActivity() {
 
     companion object {
 
-        val Term2resMap: HashMap<String, Int> = object : HashMap<String, Int>() {
-            init {
-                put("joseki", R.string.goterm_joseki)
-                put("miai", R.string.goterm_miai)
-                put("shape", R.string.goterm_shape)
-                put("tesuji", R.string.goterm_tesuji)
+        val Term2resMap = mapOf(
+                "joseki" to R.string.goterm_joseki,
+                "miai" to R.string.goterm_miai,
+                "shape" to R.string.goterm_shape,
+                "tesuji" to R.string.goterm_tesuji
                 // TODO add missing mojo
-            }
-        }
+        )
 
         fun linkifyTextView(myTextView: TextView) {
 
-            Linkify.addLinks(myTextView, Linkify.ALL);
+            Linkify.addLinks(myTextView, Linkify.ALL)
 
             val mentionFilter: Linkify.TransformFilter = Linkify.TransformFilter { matcher, url ->
                 matcher.group(1).toLowerCase()
@@ -48,8 +47,8 @@ class GoTerminologyViewActivity : AppCompatActivity() {
 
             Term2resMap.keys.forEach {
                 val wikiWordMatcher = Pattern.compile("[\\. ]($it)[\\. ]", Pattern.CASE_INSENSITIVE)
-                val wikiViewURL = "goterm://org.ligi.gobandroid_hd.goterms/";
-                Linkify.addLinks(myTextView, wikiWordMatcher, wikiViewURL, null, mentionFilter);
+                val wikiViewURL = "goterm://org.ligi.gobandroid_hd.goterms/"
+                Linkify.addLinks(myTextView, wikiWordMatcher, wikiViewURL, null, mentionFilter)
             }
 
         }

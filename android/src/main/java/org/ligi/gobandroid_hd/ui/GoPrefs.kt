@@ -40,32 +40,33 @@ object GoPrefs : KotprefModel() {
 
     override val kotprefName: String = GoAndroidEnvironment.Companion.settingsXMLName
 
-    var isAnnounceMoveActive: Boolean by booleanPrefVar()
-    var isShowForwardAlertWanted: Boolean by booleanPrefVar(default = true, key = "show_var_alert_win")
-    var isSoundWanted: Boolean by booleanPrefVar(default = true, key = R.string.prefs_do_sound)
+    var isAnnounceMoveActive: Boolean by booleanPref()
+    var isShowForwardAlertWanted: Boolean by booleanPref(default = true, key = "show_var_alert_win")
+    var isSoundWanted: Boolean by booleanPref(default = true, key = R.string.prefs_do_sound)
 
-    var isAskVariantWanted: Boolean by booleanPrefVar(default = true)
-    var isKeepVariantWanted: Boolean by booleanPrefVar(default = true)
+    var isKeepVariantWanted: Boolean by booleanPref(default = true)
 
-    var hasAcknowledgedJunctionInfo: Boolean by booleanPrefVar(default = false)
+    var hasAcknowledgedJunctionInfo: Boolean by booleanPref(default = false)
 
-    var lastBoardSize: Int by intPrefVar(default = 9)
-    var lastHandicap: Int by intPrefVar(default = 0)
+    var lastBoardSize: Int by intPref(default = 9)
+    var lastHandicap: Int by intPref(default = 0)
 
-    var username: String by stringPrefVar()
-    var rank: String by stringPrefVar()
+    var boardLineWidth: Int by intPref(default = 1, key = R.string.prefs_linewidth)
 
-    var isFullscreenEnabled: Boolean by booleanPrefVar(key = R.string.prefs_fullscreen)
-    var isLegendEnabled: Boolean by booleanPrefVar(key = R.string.prefs_do_legend, default = true)
-    var isSGFLegendEnabled: Boolean by booleanPrefVar(key = R.string.prefs_sgf_legend, default = true)
-    var isConstantLightWanted: Boolean by booleanPrefVar(key = R.string.prefs_constant_light, default = true)
-    var isGridEmbossEnabled: Boolean by booleanPrefVar(key = R.string.prefs_grid_emboss, default = true)
-    var isTsumegoPushEnabled: Boolean by booleanPrefVar(key = R.string.prefs_push_tsumego, default = true)
+    var username: String by stringPref()
+    var rank: String by stringPref()
 
-    var isTransitionDone: Boolean by booleanPrefVar(default = false)
+    var isFullscreenEnabled: Boolean by booleanPref(key = R.string.prefs_fullscreen)
+    var isLegendEnabled: Boolean by booleanPref(key = R.string.prefs_do_legend, default = true)
+    var isSGFLegendEnabled: Boolean by booleanPref(key = R.string.prefs_sgf_legend, default = true)
+    var isConstantLightWanted: Boolean by booleanPref(key = R.string.prefs_constant_light, default = true)
+    var isTsumegoPushEnabled: Boolean by booleanPref(key = R.string.prefs_push_tsumego, default = true)
 
-    private val dayNightModeString: String by stringPrefVar(key = R.string.prefs_daynight)
-    private var lastSeenSGFPackInt: Int by intPrefVar()
+    var isTransitionDone: Boolean by booleanPref(default = false)
+    var isTsumegoCleanDone: Boolean by booleanPref(default = false)
+
+    private val dayNightModeString: String by stringPref(key = R.string.prefs_daynight)
+    private var lastSeenSGFPackInt: Int by intPref()
 
     @AppCompatDelegate.NightMode
     fun getThemeInt(): Int {

@@ -1,6 +1,7 @@
 package org.ligi.gobandroid_hd.ui.editing
 
 import android.os.Bundle
+import android.support.v4.app.Fragment
 import android.view.Menu
 import android.view.WindowManager
 import org.ligi.gobandroid_hd.R
@@ -8,7 +9,8 @@ import org.ligi.gobandroid_hd.logic.Cell
 import org.ligi.gobandroid_hd.logic.GoDefinitions.*
 import org.ligi.gobandroid_hd.logic.GoGame.MoveStatus
 import org.ligi.gobandroid_hd.logic.markers.*
-import org.ligi.gobandroid_hd.logic.markers.util.MarkerUtil
+import org.ligi.gobandroid_hd.logic.markers.functions.findFirstFreeNumber
+import org.ligi.gobandroid_hd.logic.markers.functions.findNextLetter
 import org.ligi.gobandroid_hd.ui.GoActivity
 import org.ligi.gobandroid_hd.ui.editing.model.EditGameMode
 
@@ -26,11 +28,12 @@ class EditGameActivity : GoActivity() {
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
     }
 
-    override fun doAutoSave(): Boolean {
-        return true
-    }
+    override fun doAutoSave()= true
 
-    public override fun doMoveWithUIFeedback(cell: Cell): MoveStatus {
+    override fun doMoveWithUIFeedback(cell: Cell?): MoveStatus {
+        if (cell == null) {
+            return MoveStatus.INVALID_NOT_ON_BOARD
+        }
         when (mode) {
             EditGameMode.PLAY ->
                 super.doMoveWithUIFeedback(cell)
@@ -52,12 +55,12 @@ class EditGameActivity : GoActivity() {
 
             EditGameMode.NUMBER ->
                 setOrRemoveMarker(cell, {
-                    TextMarker(cell, MarkerUtil.findFirstFreeNumber(game.actMove.markers).toString())
+                    TextMarker(cell, game.actMove.markers.findFirstFreeNumber().toString())
                 })
 
             EditGameMode.LETTER ->
                 setOrRemoveMarker(cell, {
-                    TextMarker(cell, MarkerUtil.findNextLetter(game.actMove.markers).toString())
+                    TextMarker(cell, game.actMove.markers.findNextLetter())
                 })
         }
         return MoveStatus.VALID
@@ -80,13 +83,11 @@ class EditGameActivity : GoActivity() {
         game.jump(game.actMove) // we need to totally refresh the board
     }
 
-
     private val mode: EditGameMode
         get() = statefulEditModeItems.mode
 
-    override fun getGameExtraFragment(): EditGameExtrasFragment {
-        return EditGameExtrasFragment()
-    }
+    override val gameExtraFragment: Fragment
+        get() = EditGameExtrasFragment()
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.ingame_edit, menu)

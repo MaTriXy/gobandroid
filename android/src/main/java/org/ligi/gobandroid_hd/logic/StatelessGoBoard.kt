@@ -21,7 +21,7 @@ import android.util.SparseArray
 
  */
 
-class StatelessGoBoard(private val size: Int) : GoBoard {
+class StatelessGoBoard(override val size: Int) : GoBoard {
 
     private val cells = SparseArray<StatelessBoardCell>()
 
@@ -31,15 +31,12 @@ class StatelessGoBoard(private val size: Int) : GoBoard {
                 val boardCell = StatelessBoardCell(CellImpl(x, y), this)
                 cells.put(getKey(x, y), boardCell)
             }
-
         }
 
-        withAllCells {
-            it.assignNeighbours()
-        }
+        withAllCells(StatelessBoardCell::assignNeighbours)
     }
 
-    fun getCell(cell: Cell): StatelessBoardCell {
+    override fun getCell(cell: Cell): StatelessBoardCell {
         return getCell(cell.x, cell.y)
     }
 
@@ -47,7 +44,7 @@ class StatelessGoBoard(private val size: Int) : GoBoard {
         return y * size + x
     }
 
-    fun getCell(x: Int, y: Int): StatelessBoardCell {
+    override fun getCell(x: Int, y: Int): StatelessBoardCell {
         return cells.get(getKey(x, y))
     }
 
@@ -56,7 +53,7 @@ class StatelessGoBoard(private val size: Int) : GoBoard {
      * *
      * @return if the cell is on board
      */
-    fun isCellOnBoard(cell: Cell): Boolean {
+    override fun isCellOnBoard(cell: Cell): Boolean {
         return cell.x < size && cell.y < size && cell.x >= 0 && cell.y >= 0
     }
 
@@ -85,14 +82,5 @@ class StatelessGoBoard(private val size: Int) : GoBoard {
         return size == other.size
 
     }
-
-
-    /**
-     * @return the board size
-     */
-    override fun getSize(): Int {
-        return size
-    }
-
 
 }

@@ -28,14 +28,21 @@ import org.ligi.gobandroid_hd.logic.Cell
  * class to mark a pos on the board useful for go problems - e.g. from SGF
  */
 class TextMarker(cell: Cell, val text: String) : GoMarker(cell) {
+    override fun getMarkerCode() = "LB"
 
-    override fun equals(other: Any?): Boolean {
-        return super.equals(other) && other is TextMarker && other.text.equals(text)
-    }
+    override fun equals(other: Any?) = super.equals(other) && other is TextMarker && other.text == text
 
     override fun draw(c: Canvas, size: Float, x: Float, y: Float, paint: Paint) {
         val fm = paint.fontMetrics
         c.drawText(text, x, y - (fm.ascent + fm.descent) / 2, paint)
     }
+
+    override fun hashCode(): Int {
+        var result = super.hashCode()
+        result = 31 * result + text.hashCode()
+        return result
+    }
+
+    override fun toString() = "${cell.x}x${cell.y} $text"
 
 }

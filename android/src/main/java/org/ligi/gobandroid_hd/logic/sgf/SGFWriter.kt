@@ -1,12 +1,10 @@
 package org.ligi.gobandroid_hd.logic.sgf
 
 import org.ligi.gobandroid_hd.logic.Cell
+import org.ligi.gobandroid_hd.logic.GoDefinitions
 import org.ligi.gobandroid_hd.logic.GoGame
 import org.ligi.gobandroid_hd.logic.GoMove
-import org.ligi.gobandroid_hd.logic.markers.CircleMarker
-import org.ligi.gobandroid_hd.logic.markers.SquareMarker
 import org.ligi.gobandroid_hd.logic.markers.TextMarker
-import org.ligi.gobandroid_hd.logic.markers.TriangleMarker
 import org.ligi.tracedroid.logging.Log
 import java.io.BufferedWriter
 import java.io.File
@@ -45,7 +43,7 @@ object SGFWriter {
         res.append(getSGFSnippet("SO", escapeSGF(game.metaData.source)))
         res.append("\n")
 
-        game.calcBoard.statelessGoBoard.withAllCells {
+        game.statelessGoBoard.withAllCells {
             if (game.handicapBoard.isCellWhite(it)) {
                 res.append("AW").append(SGFWriter.coords2SGFFragment(it)).append("\n")
             } else if (game.handicapBoard.isCellBlack(it)) {
@@ -69,18 +67,15 @@ object SGFWriter {
 
     internal fun moves2string(move: GoMove): String {
         val res = StringBuilder()
-
         var act_move: GoMove? = move
-
         while (act_move != null) {
-
             // add the move
             if (!act_move.isFirstMove) {
-                res.append(";").append(if (act_move.isBlackToMove) "B" else "W")
+                res.append(";").append(if (act_move.player == GoDefinitions.PLAYER_BLACK) "B" else "W")
                 if (act_move.isPassMove) {
                     res.append("[]")
                 } else {
-                    res.append(coords2SGFFragment(act_move.cell)).append("\n")
+                    res.append(coords2SGFFragment(act_move.cell!!)).append("\n")
                 }
             }
 
@@ -91,24 +86,19 @@ object SGFWriter {
 
             // add markers
             for (marker in act_move.markers) {
-                if (marker is SquareMarker) {
-                    res.append("SQ").append(coords2SGFFragment(marker))
-                } else if (marker is TriangleMarker) {
-                    res.append("TR").append(coords2SGFFragment(marker))
-                } else if (marker is CircleMarker) {
-                    res.append("CR").append(coords2SGFFragment(marker))
-                } else if (marker is TextMarker) {
-                    res.append("LB")
+                res.append(marker.getMarkerCode())
+                if(marker is TextMarker) {
                     res.append(coords2SGFFragment(marker).replace("]", ":" + marker.text + "]"))
+                } else {
+                    res.append(coords2SGFFragment(marker))
                 }
             }
 
             var next_move: GoMove? = null
-
             if (act_move.hasNextMove()) {
                 if (act_move.hasNextMoveVariations()) {
-                    for (`var` in act_move.nextMoveVariations) {
-                        res.append("(").append(moves2string(`var`)).append(")")
+                    for (variation in act_move.nextMoveVariations) {
+                        res.append("(").append(moves2string(variation)).append(")")
                     }
                 } else {
                     next_move = act_move.getnextMove(0)
@@ -121,7 +111,7 @@ object SGFWriter {
     }
 
     private fun coords2SGFFragment(cell: Cell): String {
-        return "[" + ('a' + cell.x).toChar() + ('a' + cell.y).toChar() + "]"
+        return "[" + ('a' + cell.x) + ('a' + cell.y) + "]"
     }
 
     fun saveSGF(game: GoGame, file: File): Boolean {

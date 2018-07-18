@@ -17,24 +17,17 @@
 package org.ligi.gobandroid_hd.ui.alerts
 
 import android.content.Context
-import android.widget.ProgressBar
-import android.widget.TextView
-import butterknife.BindView
-import butterknife.ButterKnife
+import kotlinx.android.synthetic.main.dialog_game_load.view.*
 import org.ligi.gobandroid_hd.R
 import org.ligi.gobandroid_hd.ui.GobandroidDialog
 
 open class ProgressDialog(context: Context) : GobandroidDialog(context) {
 
-    @BindView(R.id.message)
-    lateinit var message: TextView
-
-    @BindView(R.id.progressBar)
-    lateinit var progress: ProgressBar
+    val message by lazy { container.message}
+    val progress by lazy { container.progressBar}
 
     init {
         setContentView(R.layout.dialog_game_load)
-        ButterKnife.bind(this)
         setCancelable(false)
     }
 
