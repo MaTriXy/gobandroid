@@ -8,11 +8,11 @@ import android.os.Bundle
 import android.os.IBinder
 import android.os.RemoteException
 import android.os.SystemClock
-import android.support.v4.app.Fragment
 import android.view.Menu
 import android.view.MotionEvent
 import android.view.WindowManager
 import android.widget.Toast
+import androidx.fragment.app.Fragment
 import org.ligi.gobandroid_hd.App
 import org.ligi.gobandroid_hd.R
 import org.ligi.gobandroid_hd.events.GameChangedEvent
@@ -23,7 +23,7 @@ import org.ligi.gobandroid_hd.ui.recording.RecordingGameExtrasFragment
 import org.ligi.gobandroid_hd.util.SimpleStopwatch
 import org.ligi.gobandroidhd.ai.gnugo.IGnuGoService
 import org.ligi.kaxt.makeExplicit
-import org.ligi.tracedroid.logging.Log
+import timber.log.Timber
 
 /**
  * Activity to play vs GnoGo
@@ -89,25 +89,25 @@ class PlayAgainstGnuGoActivity : GoActivity(), Runnable {
                 this@PlayAgainstGnuGoActivity.service = IGnuGoService.Stub.asInterface(service)
 
                 try {
-                    Log.i("Service bound to " + this@PlayAgainstGnuGoActivity.service!!.processGTP("version"))
+                    Timber.i("Service bound to " + this@PlayAgainstGnuGoActivity.service!!.processGTP("version"))
                 } catch (e: RemoteException) {
-                    Log.w("RemoteException when connecting", e)
+                    Timber.w(e, "RemoteException when connecting")
                 }
             }
 
             override fun onServiceDisconnected(name: ComponentName) {
-                Log.i("Service unbound ")
+                Timber.i("Service unbound ")
             }
         }
 
         val intent = gnuGoIntent
         val resolveInfo = packageManager.resolveService(intent, 0)
 
-        val name = ComponentName(resolveInfo.serviceInfo.packageName, resolveInfo.serviceInfo.name)
+        val name = ComponentName(resolveInfo!!.serviceInfo.packageName, resolveInfo.serviceInfo.name)
 
         intent.component = name
 
-        app.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+        app.bindService(intent, connection!!, Context.BIND_AUTO_CREATE)
 
         Thread(this).start()
 
@@ -126,10 +126,10 @@ class PlayAgainstGnuGoActivity : GoActivity(), Runnable {
 
         service = null
         try {
-            application.unbindService(connection)
+            application.unbindService(connection!!)
             application.stopService(gnuGoIntent)
         } catch (e: Exception) {
-            Log.w("Exception in stop()", e)
+            Timber.w(e, "Exception in stop()")
         }
 
         connection = null
@@ -185,7 +185,7 @@ class PlayAgainstGnuGoActivity : GoActivity(), Runnable {
         try {
             service!!.processGTP(color + " " + coordinates2gtpstr(cell))
         } catch (e: Exception) {
-            Log.w("problem processing " + color + " move to " + coordinates2gtpstr(cell))
+            Timber.w("problem processing " + color + " move to " + coordinates2gtpstr(cell))
         }
 
     }
@@ -210,10 +210,10 @@ class PlayAgainstGnuGoActivity : GoActivity(), Runnable {
             if (gnugoSizeSet && !checkGnuGoSync()) { // check if gobandroid
                 // and gnugo see the same board - otherwise tell gnugo about the truth afterwards ;-)
                 try {
-                    Log.i("gnugo sync check problem" + service!!.processGTP("showboard") + game.visualBoard.toString())
+                    Timber.i("gnugo sync check problem" + service!!.processGTP("showboard") + game.visualBoard.toString())
                     gnugoSizeSet = false
                 } catch (e: RemoteException) {
-                    Log.w("RemoteException when syncing", e)
+                    Timber.w(e, "RemoteException when syncing")
                 }
 
             }
@@ -222,7 +222,6 @@ class PlayAgainstGnuGoActivity : GoActivity(), Runnable {
                 try {
                     // set the size
                     service!!.processGTP("boardsize " + game.boardSize)
-                    var currentMove = game.findFirstMove()
                     game.statelessGoBoard.withAllCells { statelessBoardCell ->
                         try {
                             if (game.handicapBoard.isCellDeadWhite(statelessBoardCell)) {
@@ -233,22 +232,30 @@ class PlayAgainstGnuGoActivity : GoActivity(), Runnable {
                         } catch (e: RemoteException) {
                             e.printStackTrace()
                         }
-
                     }
-                    while (currentMove.hasNextMove()) {
-                        currentMove = currentMove.getnextMove(0)!!
-                        val gtpMove = getGtpMoveFromMove(currentMove)
-                        if (currentMove.player == GoDefinitions.PLAYER_BLACK) {
+
+                    val replay_moves = ArrayList<GoMove>()
+                    replay_moves.add(game.actMove)
+                    var tmp_move: GoMove
+                    while (true) {
+                        tmp_move = replay_moves.last()
+                        if (tmp_move.isFirstMove || tmp_move.parent == null) break
+                        replay_moves.add(tmp_move.parent!!)
+                    }
+                    for (step in replay_moves.indices.reversed()) {
+                        tmp_move = replay_moves[step]
+                        val gtpMove = getGtpMoveFromMove(tmp_move)
+                        if (tmp_move.player == GoDefinitions.PLAYER_BLACK) {
                             service!!.processGTP("play black " + gtpMove)
                         } else {
                             service!!.processGTP("play white " + gtpMove)
                         }
                     }
 
-                    Log.i("setting level " + service!!.processGTP("level " + gnuGoGame!!.level))
+                    Timber.i("setting level " + service!!.processGTP("level " + gnuGoGame!!.level))
                     gnugoSizeSet = true
                 } catch (e: Exception) {
-                    Log.w("RemoteException when configuring", e)
+                    Timber.w(e, "RemoteException when configuring")
                 }
             }
 
@@ -280,29 +287,25 @@ class PlayAgainstGnuGoActivity : GoActivity(), Runnable {
             val answer = service!!.processGTP("genmove " + color)
 
             if (!GTPHelper.doMoveByGTPString(answer, game)) {
-                Log.w("GnuGoProblem " + answer + " board " + service!!.processGTP("showboard"))
-                Log.w("restarting GnuGo " + answer)
+                Timber.w("GnuGoProblem " + answer + " board " + service!!.processGTP("showboard"))
+                Timber.w("restarting GnuGo " + answer)
                 gnugoSizeSet = false // reset
             }
-            Log.i("gugoservice" + service!!.processGTP("showboard"))
+            Timber.i("gugoservice" + service!!.processGTP("showboard"))
         } catch (e: Exception) {
-            Log.w("RemoteException when moving", e)
+            Timber.w(e, "RemoteException when moving")
         }
 
         val elapsed = simpleStopwatch.elapsed()
         avgTimeInMillis = (avgTimeInMillis + elapsed) / 2
-        Log.i("TimeSpent average:$avgTimeInMillis last:$elapsed")
+        Timber.i("TimeSpent average:$avgTimeInMillis last:$elapsed")
         gnuGoGame!!.aiIsThinking = false
     }
 
     private fun coordinates2gtpstr(cell: Cell?): String {
-        if (game == null) {
-            Log.w("coordinates2gtpstr called with game==null")
-            return ""
-        }
 
         if (cell == null) {
-            Log.w("coordinates2gtpstr called with cell==null")
+            Timber.w("coordinates2gtpstr called with cell==null")
             return ""
         }
         return GTPHelper.coordinates2gtpstr(cell, game.size)
@@ -320,9 +323,9 @@ class PlayAgainstGnuGoActivity : GoActivity(), Runnable {
 
         try {
             val undoResult = service!!.processGTP("gg-undo 2")
-            Log.i("gugoservice undo " + undoResult)
+            Timber.i("gugoservice undo " + undoResult)
         } catch (e: Exception) {
-            Log.w("RemoteException when undoing", e)
+            Timber.w(e, "RemoteException when undoing")
         }
 
     }

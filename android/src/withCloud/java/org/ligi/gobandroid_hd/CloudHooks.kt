@@ -2,10 +2,10 @@ package org.ligi.gobandroid_hd
 
 import android.annotation.TargetApi
 import android.app.Activity
+import android.app.AlertDialog
 import android.app.Application
 import android.os.Build
 import android.os.Bundle
-import android.support.v7.app.AlertDialog
 import com.google.android.gms.common.api.GoogleApiClient
 import com.google.android.gms.games.Games
 import org.greenrobot.eventbus.EventBus
@@ -15,7 +15,7 @@ import org.ligi.gobandroid_hd.events.TsumegoSolved
 import org.ligi.gobandroid_hd.ui.BaseProfileActivity
 import org.ligi.gobandroid_hd.ui.ProfileActivityLogic
 import org.ligi.kaxt.startActivityFromClass
-import org.ligi.tracedroid.logging.Log
+import timber.log.Timber
 
 object CloudHooks {
 
@@ -24,7 +24,7 @@ object CloudHooks {
     val googleApiClient: GoogleApiClient by lazy {
         GoogleApiClient.Builder(ctx).addConnectionCallbacks(object : GoogleApiClient.ConnectionCallbacks {
             override fun onConnected(bundle: Bundle?) {
-                Log.i("connected")
+                Timber.i("connected")
             }
 
             override fun onConnectionSuspended(i: Int) {

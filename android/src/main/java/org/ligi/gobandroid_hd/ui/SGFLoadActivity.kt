@@ -25,8 +25,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Looper
-import android.support.v7.app.AlertDialog
 import android.widget.LinearLayout
+import androidx.appcompat.app.AlertDialog
 import org.greenrobot.eventbus.EventBus
 import org.ligi.gobandroid_hd.App
 import org.ligi.gobandroid_hd.BuildConfig
@@ -41,7 +41,8 @@ import org.ligi.gobandroid_hd.ui.application.GobandroidFragmentActivity
 import org.ligi.gobandroid_hd.ui.ingame_common.SwitchModeHelper
 import org.ligi.gobandroid_hd.ui.tsumego.TsumegoHelper
 import org.ligi.kaxt.startActivityFromClass
-import org.ligi.tracedroid.logging.Log
+import org.ligi.tracedroid.TraceDroid
+import timber.log.Timber
 import java.io.*
 import java.net.MalformedURLException
 import java.net.URL
@@ -106,7 +107,7 @@ class SGFLoadActivity : GobandroidFragmentActivity(), Runnable, SGFReader.ISGFLo
 
         val buf = ByteArrayOutputStream()
 
-        inputStream.buffered().copyTo(buf)
+        inputStream!!.buffered().copyTo(buf)
 
         val stream_det = ByteArrayInputStream(buf.toByteArray())
         val charset = FileEncodeDetector.detect(stream_det)
@@ -133,7 +134,7 @@ class SGFLoadActivity : GobandroidFragmentActivity(), Runnable, SGFReader.ISGFLo
         // the intent
 
         if (intent_uri == null) {
-            Log.e("SGFLoadActivity with intent_uri==null")
+            Timber.e("SGFLoadActivity with intent_uri==null")
             finish()
             return
         }
@@ -153,7 +154,7 @@ class SGFLoadActivity : GobandroidFragmentActivity(), Runnable, SGFReader.ISGFLo
         var sgf: String? = null
 
         try {
-            sgf = uri2string(intent_uri)
+            sgf = uri2string(intent_uri!!)
 
             game = SGFReader.sgf2game(sgf, this)
 
@@ -169,7 +170,7 @@ class SGFLoadActivity : GobandroidFragmentActivity(), Runnable, SGFReader.ISGFLo
 
 
         } catch (e: Exception) {
-            Log.w("exception in load", e)
+            Timber.w(e, "exception in load")
         }
 
         if (game == null) {
@@ -183,7 +184,7 @@ class SGFLoadActivity : GobandroidFragmentActivity(), Runnable, SGFReader.ISGFLo
                         .setMessage(
                                 R.string.problem_loading_sgf_would_you_like_to_send_ligi_this_sgf_to_fix_the_problem)
                         .setPositiveButton(R.string.yes
-                        ) { dialog, whichButton ->
+                        ) { _, _ ->
                             val emailIntent = Intent(
                                     android.content.Intent.ACTION_SEND)
                             emailIntent.type = "plain/text"
@@ -203,8 +204,8 @@ class SGFLoadActivity : GobandroidFragmentActivity(), Runnable, SGFReader.ISGFLo
                                                     + intent_uri
                                                     + " sgf:\n"
                                                     + sgf
-                                                    + "err:"
-                                                    + Log.getCachedLog()
+                                                    + "log:"
+                                                    + TraceDroid.getLog().joinToString("\n")
                                     )
                             this@SGFLoadActivity.startActivity(Intent
                                     .createChooser(emailIntent,
@@ -212,7 +213,7 @@ class SGFLoadActivity : GobandroidFragmentActivity(), Runnable, SGFReader.ISGFLo
                             finish()
                         }
                         .setNegativeButton(R.string.no
-                        ) { dialog, whichButton -> finish() }.show()
+                        ) { _, _ -> finish() }.show()
             }
 
             return

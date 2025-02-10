@@ -1,8 +1,7 @@
 package org.ligi.gobandroid_hd
 
 import android.app.Application
-import android.support.v7.app.AppCompatDelegate
-import com.chibatching.kotpref.Kotpref
+import androidx.appcompat.app.AppCompatDelegate
 import com.github.salomonbrys.kodein.Kodein
 import com.github.salomonbrys.kodein.bind
 import com.github.salomonbrys.kodein.instance
@@ -15,7 +14,6 @@ import org.ligi.gobandroid_hd.ui.application.GoAndroidEnvironment
 import org.ligi.gobandroid_hd.ui.application.GobandroidSettingsTransition
 import org.ligi.gobandroid_hd.util.TsumegoCleaner
 import org.ligi.tracedroid.TraceDroid
-import org.ligi.tracedroid.logging.Log
 
 /**
  * the central Application-Context
@@ -40,7 +38,6 @@ open class App : Application() {
         tracker.init(this)
 
         TraceDroid.init(this)
-        Log.setTAG("gobandroid")
 
         CloudHooks.onApplicationCreation(this)
 

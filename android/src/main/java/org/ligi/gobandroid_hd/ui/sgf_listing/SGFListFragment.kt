@@ -4,18 +4,18 @@ import android.content.DialogInterface
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.support.v7.app.AlertDialog
-import android.support.v7.app.AppCompatActivity
-import android.support.v7.view.ActionMode
-import android.support.v7.widget.CardView
-import android.support.v7.widget.OrientationHelper
-import android.support.v7.widget.RecyclerView
-import android.support.v7.widget.StaggeredGridLayoutManager
 import android.text.TextUtils.isEmpty
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.view.ActionMode
+import androidx.cardview.widget.CardView
+import androidx.recyclerview.widget.OrientationHelper
+import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.davekoelle.alphanum.AlphanumComparator
 import org.ligi.gobandroid_hd.InteractionScope.Mode.TSUMEGO
 import org.ligi.gobandroid_hd.R
@@ -30,7 +30,7 @@ import org.ligi.gobandroid_hd.ui.sgf_listing.item_view_holder.PathViewHolder
 import org.ligi.gobandroid_hd.ui.sgf_listing.item_view_holder.ReviewViewHolder
 import org.ligi.gobandroid_hd.ui.sgf_listing.item_view_holder.TsumegoViewHolder
 import org.ligi.gobandroid_hd.ui.sgf_listing.item_view_holder.ViewHolderInterface
-import org.ligi.tracedroid.logging.Log
+import timber.log.Timber
 import java.io.File
 import java.io.IOException
 import java.util.*
@@ -57,15 +57,15 @@ class SGFListFragment : GobandroidFragment(), Refreshable {
 
     private fun getEnvFromSavedInstance() {
         if (menu_items == null) {
-            menu_items = arguments.getStringArray(EXTRA_MENU_ITEMS)
+            menu_items = arguments?.getStringArray(EXTRA_MENU_ITEMS)
         }
 
         if (dir == null) {
-            dir = arguments.getString(EXTRA_DIR)
+            dir = arguments?.getString(EXTRA_DIR)
         }
     }
 
-    override fun onCreateView(inflater: LayoutInflater?, container: ViewGroup?, savedInstanceState: Bundle?): View? {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         val inflate = View.inflate(context, R.layout.recycler_view, null)
         val recyclerView = inflate.findViewById(R.id.content_recycler) as RecyclerView
 
@@ -77,9 +77,9 @@ class SGFListFragment : GobandroidFragment(), Refreshable {
         return inflate
     }
 
-    override fun onSaveInstanceState(outState: Bundle?) {
+    override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        outState!!.putStringArray(EXTRA_MENU_ITEMS, menu_items)
+        outState.putStringArray(EXTRA_MENU_ITEMS, menu_items)
         outState.putString(EXTRA_DIR, dir)
     }
 
@@ -89,14 +89,14 @@ class SGFListFragment : GobandroidFragment(), Refreshable {
     }
 
     override fun refresh() {
-        val alert = AlertDialog.Builder(activity).setTitle(R.string.problem_listing_sgf)
+        val alert = AlertDialog.Builder(requireActivity()).setTitle(R.string.problem_listing_sgf)
 
         alert.setPositiveButton(R.string.ok, { dialogInterface: DialogInterface, i: Int ->
             dialogInterface.dismiss()
-            activity.finish()
+            requireActivity().finish()
         })
         alert.setOnCancelListener({
-            activity.finish()
+            requireActivity().finish()
         })
 
         if (dir == null) {
@@ -137,9 +137,9 @@ class SGFListFragment : GobandroidFragment(), Refreshable {
                     val game1 = SGFReader.sgf2game(File(dir_file, list[10]).bufferedReader().readText(), null, SGFReader.BREAKON_FIRSTMOVE)
                     val game2 = SGFReader.sgf2game(File(dir_file, list[12]).bufferedReader().readText(), null, SGFReader.BREAKON_FIRSTMOVE)
                     if (game1!=null && game2!=null && !isEmpty(game1.metaData.difficulty) && !isEmpty(game2.metaData.difficulty)) {
-                        AlertDialog.Builder(activity).setMessage("This looks like the gogameguru offline selection - sort by difficulty")
-                                .setPositiveButton(R.string.ok) { dialog, which ->
-                                    GoProblemsRenaming(activity, dir_file).execute()
+                        AlertDialog.Builder(requireActivity()).setMessage("This looks like the gogameguru offline selection - sort by difficulty")
+                                .setPositiveButton(R.string.ok) { dialog, _ ->
+                                    GoProblemsRenaming(requireActivity(), dir_file).execute()
                                     dialog.dismiss()
                                 }
                                 .setNegativeButton(R.string.cancel, null)
@@ -147,7 +147,7 @@ class SGFListFragment : GobandroidFragment(), Refreshable {
                                 .show()
                     }
                 } catch (e: IOException) {
-                    Log.w("problem in gogameguru rename offer " + e)
+                    Timber.w(e, "problem in gogameguru rename offer")
                 }
 
                 return
@@ -187,8 +187,8 @@ class SGFListFragment : GobandroidFragment(), Refreshable {
 
 
     fun delete_sgfmeta() {
-        Log.i("delete sgfmeta files")
-        val alertBuilder = AlertDialog.Builder(activity).setTitle(R.string.del_sgfmeta)
+        Timber.i("delete sgfmeta files")
+        val alertBuilder = AlertDialog.Builder(requireActivity()).setTitle(R.string.del_sgfmeta)
         alertBuilder.setMessage(R.string.del_sgfmeta_prompt)
 
         if (dir == null) {
@@ -204,7 +204,7 @@ class SGFListFragment : GobandroidFragment(), Refreshable {
             return
         }
 
-        alertBuilder.setPositiveButton(R.string.ok) { dialog, id ->
+        alertBuilder.setPositiveButton(R.string.ok) { dialog, _ ->
             // User clicked OK button
             dialog.dismiss()
             for (file in filesToDelete) {
@@ -287,9 +287,9 @@ class SGFListFragment : GobandroidFragment(), Refreshable {
 
                 // check if it is directory behind golink or general
                 if (GoLink.isGoLink(fileName)) {
-                    intent2start.setClass(activity, GoLinkLoadActivity::class.java)
+                    intent2start.setClass(requireContext(), GoLinkLoadActivity::class.java)
                 } else if (!fileName.endsWith(".sgf")) {
-                    intent2start.setClass(activity, SGFFileSystemListActivity::class.java)
+                    intent2start.setClass(requireContext(), SGFFileSystemListActivity::class.java)
                 }
 
                 intent2start.data = Uri.parse(fileName)
@@ -305,7 +305,7 @@ class SGFListFragment : GobandroidFragment(), Refreshable {
                 override fun onLongClick(v: View): Boolean {
 
                     if (activity !is AppCompatActivity) {
-                        Log.w("Activity not instanceof AppCompatActivity - this is not really expected")
+                        Timber.w("Activity not instanceof AppCompatActivity - this is not really expected")
                         return false
                     }
 
@@ -328,7 +328,7 @@ class SGFListFragment : GobandroidFragment(), Refreshable {
                         menuResource = R.menu.list_dir_sgf_action_mode
                     }
 
-                    return object : SGFListActionMode(this@SGFListFragment.activity, fileName, this@SGFListFragment, menuResource) {
+                    return object : SGFListActionMode(this@SGFListFragment.requireActivity(), fileName, this@SGFListFragment, menuResource) {
                         override fun onDestroyActionMode(mode: ActionMode) {
                             actionMode = null
                             cardView.cardElevation = resources.getDimension(R.dimen.cardview_default_elevation)

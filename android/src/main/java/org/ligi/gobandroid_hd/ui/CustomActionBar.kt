@@ -5,11 +5,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.support.v4.content.res.ResourcesCompat
-import android.support.v7.app.AlertDialog
 import android.view.LayoutInflater
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import androidx.appcompat.app.AlertDialog
+import androidx.core.content.res.ResourcesCompat
 import com.github.salomonbrys.kodein.instance
 import com.github.salomonbrys.kodein.lazy
 import kotlinx.android.synthetic.main.dropdown_item.view.*
@@ -24,7 +24,7 @@ import org.ligi.gobandroid_hd.events.GameChangedEvent
 import org.ligi.gobandroid_hd.model.GameProvider
 import org.ligi.gobandroid_hd.ui.gnugo.GnuGoHelper
 import org.ligi.gobandroid_hd.ui.ingame_common.SwitchModeHelper
-import org.ligi.tracedroid.logging.Log
+import timber.log.Timber
 
 class CustomActionBar(private val activity: Activity) : LinearLayout(activity) {
 
@@ -34,11 +34,11 @@ class CustomActionBar(private val activity: Activity) : LinearLayout(activity) {
     internal val gameProvider: GameProvider by App.kodein.lazy.instance()
     internal val interactionScope: InteractionScope by App.kodein.lazy.instance()
 
-    private val inflater: LayoutInflater
-    private val app: App
+    private val inflater: LayoutInflater = activity.getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
+    private val app: App = activity.applicationContext as App
 
-    private val highlight_color: Int
-    private val transparent: Int
+    private val highlightColor: Int = ResourcesCompat.getColor(resources, R.color.dividing_color, null)
+    private val transparent: Int = ResourcesCompat.getColor(resources, android.R.color.transparent, null)
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
@@ -51,12 +51,6 @@ class CustomActionBar(private val activity: Activity) : LinearLayout(activity) {
     }
 
     init {
-        app = activity.applicationContext as App
-
-        highlight_color = ResourcesCompat.getColor(resources, R.color.dividing_color, null)
-        transparent = ResourcesCompat.getColor(resources, android.R.color.transparent, null)
-
-        inflater = activity.getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
 
         inflater.inflate(R.layout.top_nav_and_extras, this)
 
@@ -90,11 +84,11 @@ class CustomActionBar(private val activity: Activity) : LinearLayout(activity) {
         addItem(container, icon_res, string_res, Runnable {
             pop.dismiss()
 
-            if (mode === InteractionScope.Mode.GNUGO && !GnuGoHelper.isGnuGoAvail(activity)) {
+            if (mode === GNUGO && !GnuGoHelper.isGnuGoAvail(activity)) {
                 AlertDialog.Builder(activity).setTitle(R.string.install_gnugo)
                         .setMessage(R.string.gnugo_not_installed)
                         .setPositiveButton(android.R.string.ok) { _, _ ->
-                            val intent = Intent(Intent.ACTION_VIEW);
+                            val intent = Intent(Intent.ACTION_VIEW)
                             intent.data = Uri.parse("market://details?id=org.ligi.gobandroidhd.ai.gnugo")
                             val chooser = Intent.createChooser(intent, null)
                             activity.startActivity(chooser)
@@ -103,7 +97,7 @@ class CustomActionBar(private val activity: Activity) : LinearLayout(activity) {
                 return@Runnable
             }
             activity.finish()
-            Log.i("set mode" + mode)
+            Timber.i("set mode" + mode)
             interactionScope.mode = mode
             val i = SwitchModeHelper.getIntentByMode(app, mode)
             activity.startActivity(i)
@@ -116,9 +110,9 @@ class CustomActionBar(private val activity: Activity) : LinearLayout(activity) {
 
         val scrollView = ScrollView(ctx)
         val contentView = LinearLayout(ctx)
-        contentView.orientation = LinearLayout.VERTICAL
+        contentView.orientation = VERTICAL
         val background = BitmapDrawableNoMinimumSize(ctx.resources, R.drawable.wood_bg)
-        contentView.setBackgroundDrawable(background)
+        contentView.background = background
 
         addModeItem(contentView, SETUP, R.string.setup, R.drawable.ic_action_settings_overscan, pop)
 
@@ -167,12 +161,12 @@ class CustomActionBar(private val activity: Activity) : LinearLayout(activity) {
             black_captures_tv.text = game.capturesBlack.toString()
 
             val isWhitesMove = !game.isBlackToMove && !game.isFinished
-            white_info_container.setBackgroundColor(if (isWhitesMove) highlight_color else transparent)
-            white_captures_tv.setBackgroundColor(if (isWhitesMove) highlight_color else transparent)
+            white_info_container.setBackgroundColor(if (isWhitesMove) highlightColor else transparent)
+            white_captures_tv.setBackgroundColor(if (isWhitesMove) highlightColor else transparent)
 
             val isBlacksMove = game.isBlackToMove || game.isFinished
-            blackStoneImageView.setBackgroundColor(if (isBlacksMove) highlight_color else transparent)
-            black_captures_tv.setBackgroundColor(if (isBlacksMove) highlight_color else transparent)
+            blackStoneImageView.setBackgroundColor(if (isBlacksMove) highlightColor else transparent)
+            black_captures_tv.setBackgroundColor(if (isBlacksMove) highlightColor else transparent)
 
             move_tv.text = app.resources.getString(R.string.move) + game.actMove.movePos
         }
@@ -180,7 +174,7 @@ class CustomActionBar(private val activity: Activity) : LinearLayout(activity) {
 
     private fun isPlayStoreInstalled(): Boolean {
         val packageManager = app.packageManager
-        val packages = packageManager.getInstalledPackages(PackageManager.GET_UNINSTALLED_PACKAGES)
+        val packages = packageManager.getInstalledPackages(PackageManager.MATCH_UNINSTALLED_PACKAGES)
         return packages.any() { it.packageName == GooglePlayStorePackageNameOld || it.packageName == GooglePlayStorePackageNameNew }
     }
 }

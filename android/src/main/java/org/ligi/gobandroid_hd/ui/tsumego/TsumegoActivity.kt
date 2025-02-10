@@ -1,11 +1,10 @@
 package org.ligi.gobandroid_hd.ui.tsumego
 
 import android.content.DialogInterface
-import android.support.v7.app.AlertDialog
 import android.view.Menu
 import android.view.MenuItem
+import androidx.appcompat.app.AlertDialog
 import kotlinx.android.synthetic.main.game.*
-import org.ligi.gobandroid_hd.App
 import org.ligi.gobandroid_hd.R
 import org.ligi.gobandroid_hd.events.GameChangedEvent
 import org.ligi.gobandroid_hd.events.TsumegoSolved
@@ -14,7 +13,7 @@ import org.ligi.gobandroid_hd.logic.GoGame
 import org.ligi.gobandroid_hd.logic.GoMove
 import org.ligi.gobandroid_hd.ui.GoActivity
 import org.ligi.gobandroid_hd.ui.review.SGFMetaData
-import org.ligi.tracedroid.logging.Log
+import timber.log.Timber
 
 class TsumegoActivity : GoActivity() {
 
@@ -36,14 +35,6 @@ class TsumegoActivity : GoActivity() {
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-
-        if (game == null) { // there was no game - fallback to main menu
-            App.tracker.trackException("tsumego start getGame() returned null in onCreate", false)
-            finish()
-            // startActivity(new Intent(this, gobandroid.class));
-            return super.onCreateOptionsMenu(menu)
-        }
-
         menuInflater.inflate(R.menu.ingame_tsumego, menu)
         menu.findItem(R.id.menu_game_hint).isVisible = tsumegoController.isFinishingMoveKnown() && tsumegoController.isOnPath()
         menu.findItem(R.id.menu_game_undo).isVisible = !game.actMove.isFirstMove
@@ -52,7 +43,7 @@ class TsumegoActivity : GoActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem) = when (item.itemId) {
         R.id.menu_game_hint -> {
-            Log.i("FinishingMoveDebug " + tsumegoController.finishingMove)
+            Timber.i("FinishingMoveDebug " + tsumegoController.finishingMove)
             TsumegoHintAlert.show(this, tsumegoController.finishingMove)
             true
         }
@@ -82,12 +73,6 @@ class TsumegoActivity : GoActivity() {
     override fun onResume() {
         super.onResume()
 
-        if (game == null) { // there was no game - fallback to main menu
-            App.tracker.trackException("tsumego start getGame() returned null in onCreate", false)
-            finish()
-            return
-        }
-
         setTitle(R.string.tsumego)
 
         tsumegoController = TsumegoController(game)
@@ -96,10 +81,10 @@ class TsumegoActivity : GoActivity() {
         if (!tsumegoController.isFinishingMoveKnown()) {
             AlertDialog.Builder(this).setMessage(R.string.tsumego_sgf_no_solution)
                     .setNegativeButton(R.string.ok, null)
-                    .setPositiveButton(R.string.go_back, { dialogInterface: DialogInterface, i: Int ->
+                    .setPositiveButton(R.string.go_back) { dialogInterface: DialogInterface, _: Int ->
                         dialogInterface.dismiss()
                         finish()
-                    }).show()
+                    }.show()
         }
 
         val myZoom = TsumegoHelper.calcZoom(game, true)
@@ -133,7 +118,7 @@ class TsumegoActivity : GoActivity() {
 
             bus.post(TsumegoSolved(game))
         }
-        runOnUiThread { supportInvalidateOptionsMenu() }
+        runOnUiThread { invalidateOptionsMenu() }
     }
 
     override fun isAsk4QuitEnabled() = false

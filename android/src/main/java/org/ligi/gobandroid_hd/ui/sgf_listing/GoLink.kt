@@ -1,7 +1,7 @@
 package org.ligi.gobandroid_hd.ui.sgf_listing
 
 import org.ligi.gobandroid_hd.logic.GoGame
-import org.ligi.tracedroid.logging.Log
+import timber.log.Timber
 import java.io.BufferedWriter
 import java.io.File
 import java.io.FileWriter
@@ -70,19 +70,15 @@ class GoLink(file: File) {
         }
 
         fun saveGameToGoLink(game: GoGame, golink_path: File, golink_fname: String) {
-            var golink_path = golink_path
-
             val move_pos = game.actMove.movePos
-
 
             if (!golink_path.isDirectory)
                 golink_path.mkdirs()
 
             try {
-                golink_path.createNewFile()
-                golink_path = File(golink_path.toString() + "/" + golink_fname)
+                val golink_file = File(golink_path.toString() + "/" + golink_fname)
 
-                val sgf_writer = FileWriter(golink_path)
+                val sgf_writer = FileWriter(golink_file)
 
                 val out = BufferedWriter(sgf_writer)
 
@@ -90,7 +86,7 @@ class GoLink(file: File) {
                 out.close()
                 sgf_writer.close()
             } catch (e: IOException) {
-                Log.i("" + e)
+                Timber.i("" + e)
             }
 
         }
